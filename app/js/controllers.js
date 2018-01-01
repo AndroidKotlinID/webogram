@@ -528,6 +528,10 @@ angular.module('myApp.controllers', ['myApp.i18n'])
       })
     }
 
+    $scope.isHistoryPeerGroup = function () {
+      return $scope.historyPeer.id < 0 && !AppPeersManager.isBroadcast($scope.historyPeer.id)
+    }
+
     // setTimeout($scope.openSettings, 1000)
 
     $scope.openFaq = function () {
@@ -1873,6 +1877,7 @@ angular.module('myApp.controllers', ['myApp.i18n'])
         var isBroadcast = AppPeersManager.isBroadcast(peerID)
         var isMegagroup = AppPeersManager.isMegagroup(peerID)
         var isUsualGroup = !isChannel && !isUser
+        var isSavedMessages = peerID == AppUsersManager.getSelf().id
 
         var revocable = !isChannel
         for (var i = 0; revocable && i < selectedMessageIDs.length; i++) {
@@ -1888,6 +1893,7 @@ angular.module('myApp.controllers', ['myApp.i18n'])
           revocable: revocable,
           isUser: isUser,
           peerID: peerID,
+          isSavedMessages: isSavedMessages,
           isChannel: isBroadcast,
           isSupergroup: isMegagroup,
           isUsualGroup: isUsualGroup
