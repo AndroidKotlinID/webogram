@@ -1033,6 +1033,7 @@ angular.module('myApp.controllers', ['myApp.i18n'])
               var message = AppMessagesManager.getMessage(dialog.top_message)
               if (message.fromID > 0) {
                 wrappedDialog.peerID = message.fromID
+                wrappedDialog.foundInHistory = true
               }
             }
 
@@ -2512,8 +2513,14 @@ angular.module('myApp.controllers', ['myApp.i18n'])
       })
       var chatParticipantsPromise
       if (peerID < 0) {
-        chatParticipantsPromise = AppProfileManager.getChatFull(-peerID).then(function (chatFull) {
-          var participantsVector = (chatFull.participants || {}).participants || []
+        if (AppPeersManager.isChannel(peerID)) {
+          chatParticipantsPromise = AppProfileManager.getChannelParticipants(-peerID)
+        } else {
+          chatParticipantsPromise = AppProfileManager.getChatFull(-peerID).then(function (chatFull) {
+            return (chatFull.participants || {}).participants || []
+          })
+        }
+        chatParticipantsPromise = chatParticipantsPromise.then(function (participantsVector) {
           var ids = []
           angular.forEach(participantsVector, function (participant) {
             ids.push(participant.user_id)
