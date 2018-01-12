@@ -1941,15 +1941,34 @@ angular.module('myApp.controllers', ['myApp.i18n'])
         })
       }
       if (selectedMessageIDs.length) {
-        PeersSelectService.selectPeer({canSend: true}).then(function (peerString) {
+        PeersSelectService.selectPeer({canSend: true}).then(function (peerStrings) {
           selectedCancel()
-          $rootScope.$broadcast('history_focus', {
-            peerString: peerString,
-            attachment: {
-              _: 'fwd_messages',
-              id: selectedMessageIDs
-            }
-          })
+          if (Array.isArray(peerStrings) && peerStrings.length > 1) {
+            angular.forEach(peerStrings, function (peerString) {
+              var peerID = AppPeersManager.getPeerID(peerString)
+              AppMessagesManager.forwardMessages(peerID, selectedMessageIDs)
+            })
+            var toastData = toaster.pop({
+              type: 'info',
+              body: _('confirm_modal_forward_to_peer_success'),
+              bodyOutputType: 'trustedHtml',
+              clickHandler: function () {
+                $rootScope.$broadcast('history_focus', {
+                  peerString: peerStrings[0]
+                })
+                toaster.clear(toastData)
+              },
+              showCloseButton: false
+            })
+          } else {            
+            $rootScope.$broadcast('history_focus', {
+              peerString: peerStrings,
+              attachment: {
+                _: 'fwd_messages',
+                id: selectedMessageIDs
+              }
+            })
+          }    
         })
       }
     }
@@ -4034,6 +4053,12 @@ angular.module('myApp.controllers', ['myApp.i18n'])
     function onChatUpdated (updates) {
       ApiUpdatesManager.processUpdateMessage(updates)
       $rootScope.$broadcast('history_focus', {peerString: $scope.chatFull.peerString})
+      if (updates &&
+          updates.updates &&
+          updates.updates.length &&
+          AppChatsManager.isChannel($scope.chatID)) {
+        AppProfileManager.invalidateChannelParticipants($scope.chatID)
+      }
     }
 
     $scope.leaveChannel = function () {
@@ -4085,10 +4110,10 @@ angular.module('myApp.controllers', ['myApp.i18n'])
     }
 
     $scope.kickFromChannel = function (userID) {
-      MtpApiManager.invokeApi('channels.kickFromChannel', {
+      MtpApiManager.invokeApi('channels.editBanned', {
         channel: AppChatsManager.getChannelInput($scope.chatID),
         user_id: AppUsersManager.getUserInput(userID),
-        kicked: true
+        banned_rights: {_: 'channelBannedRights', flags: 1, until_date: 0}
       }).then(onChatUpdated)
     }
 
@@ -4918,6 +4943,30 @@ angular.module('myApp.controllers', ['myApp.i18n'])
       }, function () {
         delete $scope.shareLink
       })
+    }
+
+    $scope.dialogMultiSelect = function(peerString, event) {
+      var peerID = AppPeersManager.getPeerID(peerString)      
+      $scope.multiSelect = $scope.selectedPeers[peerID] == undefined || 
+        $scope.selectedPeers[peerID] != undefined && Object.keys($scope.selectedPeers).length > 1
+      if ($scope.selectedPeers[peerID]) {
+        delete $scope.selectedPeers[peerID]
+        $scope.selectedCount--
+        var pos = $scope.selectedPeerIDs.indexOf(peerID)
+        if (pos >= 0) {
+          $scope.selectedPeerIDs.splice(pos, 1)
+        }
+      } else {
+        $scope.selectedPeers[peerID] = AppPeersManager.getPeer(peerID)
+        $scope.selectedCount++
+        $scope.selectedPeerIDs.unshift(peerID)
+      }
+      cancelEvent(event)
+    }
+
+    $scope.isSelected = function(peerString){
+      var peerID = AppPeersManager.getPeerID(peerString)
+      return $scope.selectedPeers[peerID] != undefined
     }
 
     $scope.dialogSelect = function (peerString) {
